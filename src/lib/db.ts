@@ -1,74 +1,55 @@
-import Database from "better-sqlite3";
-import path from "path";
 import bcrypt from "bcryptjs";
 
-const DB_PATH = path.join(process.cwd(), "dashboard.db");
+// Simple in-memory store that works on both local and Vercel
+// Data persists within a single server instance (resets on cold start for serverless)
 
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
-    initDb(_db);
-  }
-  return _db;
+interface User {
+  id: number;
+  email: string;
+  password: string;
+  name: string;
 }
 
-function initDb(db: Database.Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      name TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS boards (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS projects (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      board_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      description TEXT DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'todo',
-      priority TEXT NOT NULL DEFAULT 'medium',
-      github_url TEXT DEFAULT '',
-      position INTEGER NOT NULL DEFAULT 0,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
-    );
-  `);
-
-  // Seed if no users exist
-  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-  if (userCount.count === 0) {
-    seed(db);
-  }
+interface Board {
+  id: number;
+  user_id: number;
+  name: string;
+  created_at: string;
 }
 
-function seed(db: Database.Database) {
+interface Project {
+  id: number;
+  board_id: number;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  github_url: string;
+  position: number;
+  updated_at: string;
+  created_at: string;
+}
+
+let users: User[] = [];
+let boards: Board[] = [];
+let projects: Project[] = [];
+let nextUserId = 1;
+let nextBoardId = 1;
+let nextProjectId = 1;
+let seeded = false;
+
+function seed() {
+  if (seeded) return;
+  seeded = true;
+
   const hash = bcrypt.hashSync("TestPass123!", 10);
-  const result = db.prepare("INSERT INTO users (email, password, name) VALUES (?, ?, ?)").run(
-    "toscan@renerivera.net",
-    hash,
-    "René Rivera"
-  );
-  const userId = result.lastInsertRowid;
+  const userId = nextUserId++;
+  users.push({ id: userId, email: "toscan@renerivera.net", password: hash, name: "René Rivera" });
 
-  const boardResult = db.prepare("INSERT INTO boards (user_id, name) VALUES (?, ?)").run(userId, "All Projects");
-  const boardId = boardResult.lastInsertRowid;
+  const boardId = nextBoardId++;
+  boards.push({ id: boardId, user_id: userId, name: "All Projects", created_at: new Date().toISOString() });
 
-  const projects = [
+  const seedProjects = [
     { title: "FidelTrad", description: "MVP complete, v2 PR pending", status: "onhold", priority: "high", github: "https://github.com/Rene-Rivera/Fideltrad", pos: 0 },
     { title: "SecondBrain", description: "Personal knowledge management system", status: "onhold", priority: "medium", github: "https://github.com/Rene-Rivera/SecondBrain", pos: 1 },
     { title: "The Door", description: "Creative project in active development", status: "inprogress", priority: "high", github: "https://github.com/ToscanRivera/the-door", pos: 0 },
@@ -80,11 +61,75 @@ function seed(db: Database.Database) {
     { title: "Project Dashboard", description: "This dashboard — executive project overview", status: "inprogress", priority: "high", github: "https://github.com/ToscanRivera/project-dashboard", pos: 3 },
   ];
 
-  const stmt = db.prepare(
-    "INSERT INTO projects (board_id, title, description, status, priority, github_url, position) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  );
-
-  for (const p of projects) {
-    stmt.run(boardId, p.title, p.description, p.status, p.priority, p.github, p.pos);
+  for (const p of seedProjects) {
+    const id = nextProjectId++;
+    const now = new Date().toISOString();
+    projects.push({ id, board_id: boardId, title: p.title, description: p.description, status: p.status, priority: p.priority, github_url: p.github, position: p.pos, updated_at: now, created_at: now });
   }
 }
+
+export const db = {
+  getUser(email: string): User | undefined {
+    seed();
+    return users.find(u => u.email === email);
+  },
+
+  getBoards(userId: number): Board[] {
+    seed();
+    return boards.filter(b => b.user_id === userId);
+  },
+
+  createBoard(userId: number, name: string): Board {
+    seed();
+    const id = nextBoardId++;
+    const board: Board = { id, user_id: userId, name, created_at: new Date().toISOString() };
+    boards.push(board);
+    return board;
+  },
+
+  deleteBoard(boardId: number, userId: number) {
+    seed();
+    projects = projects.filter(p => p.board_id !== boardId);
+    boards = boards.filter(b => !(b.id === boardId && b.user_id === userId));
+  },
+
+  getProjects(boardId: number, userId: number): Project[] {
+    seed();
+    const board = boards.find(b => b.id === boardId && b.user_id === userId);
+    if (!board) return [];
+    return projects.filter(p => p.board_id === boardId).sort((a, b) => a.position - b.position);
+  },
+
+  createProject(data: { board_id: number; title: string; description?: string; status?: string; priority?: string; github_url?: string }): Project {
+    seed();
+    const maxPos = Math.max(-1, ...projects.filter(p => p.board_id === data.board_id && p.status === (data.status || "todo")).map(p => p.position));
+    const id = nextProjectId++;
+    const now = new Date().toISOString();
+    const project: Project = {
+      id, board_id: data.board_id, title: data.title, description: data.description || "",
+      status: data.status || "todo", priority: data.priority || "medium",
+      github_url: data.github_url || "", position: maxPos + 1, updated_at: now, created_at: now,
+    };
+    projects.push(project);
+    return project;
+  },
+
+  updateProject(projectId: number, data: Partial<Project>) {
+    seed();
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx === -1) return;
+    projects[idx] = { ...projects[idx], ...data, updated_at: new Date().toISOString() };
+  },
+
+  reorderProject(projectId: number, status: string, position: number) {
+    seed();
+    const idx = projects.findIndex(p => p.id === projectId);
+    if (idx === -1) return;
+    projects[idx] = { ...projects[idx], status, position, updated_at: new Date().toISOString() };
+  },
+
+  deleteProject(projectId: number) {
+    seed();
+    projects = projects.filter(p => p.id !== projectId);
+  },
+};

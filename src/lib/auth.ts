@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { getDb } from "./db";
+import { db } from "./db";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,8 +13,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const db = getDb();
-        const user = db.prepare("SELECT * FROM users WHERE email = ?").get(credentials.email) as any;
+        const user = db.getUser(credentials.email);
         if (!user) return null;
         const valid = bcrypt.compareSync(credentials.password, user.password);
         if (!valid) return null;
