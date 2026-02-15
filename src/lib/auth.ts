@@ -3,6 +3,23 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 
+/**
+ * SECURITY NOTES:
+ * 
+ * CSRF Protection: NextAuth.js includes built-in CSRF protection by default.
+ * It generates and validates CSRF tokens for all authentication requests.
+ * This protection is automatically enabled and cannot be disabled unless
+ * explicitly configured otherwise.
+ * 
+ * Rate Limiting: Consider implementing rate limiting for authentication
+ * endpoints in production. Options include:
+ * - Redis-based rate limiting with libraries like 'upstash-ratelimit'
+ * - Edge middleware rate limiting (Vercel)
+ * - Reverse proxy rate limiting (nginx, Cloudflare)
+ * - Database-based request tracking for basic rate limiting
+ * Current implementation: None - should be added for production deployment
+ */
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
