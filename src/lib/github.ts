@@ -40,7 +40,8 @@ export interface GitHubProjectItem {
   };
 }
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+// Read at runtime, not build time
+const getToken = () => process.env.GITHUB_TOKEN;
 const GITHUB_API_BASE = 'https://api.github.com';
 const GITHUB_GRAPHQL_API = 'https://api.github.com/graphql';
 
@@ -123,14 +124,14 @@ const UPDATE_PROJECT_ITEM_MUTATION = `
  * Make authenticated GitHub API request
  */
 async function githubRequest(url: string, options: RequestInit = {}) {
-  if (!GITHUB_TOKEN) {
+  if (!getToken()) {
     throw new Error('GitHub token not configured');
   }
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Authorization': `Bearer ${getToken()}`,
       'Accept': 'application/vnd.github.v3+json',
       'User-Agent': 'Project-Dashboard/1.0',
       ...options.headers,
@@ -149,14 +150,14 @@ async function githubRequest(url: string, options: RequestInit = {}) {
  * Make GitHub GraphQL request
  */
 async function githubGraphQLRequest(query: string, variables: any = {}) {
-  if (!GITHUB_TOKEN) {
+  if (!getToken()) {
     throw new Error('GitHub token not configured');
   }
 
   const response = await fetch(GITHUB_GRAPHQL_API, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Authorization': `Bearer ${getToken()}`,
       'Content-Type': 'application/json',
       'User-Agent': 'Project-Dashboard/1.0',
     },
