@@ -222,9 +222,9 @@ export default function ContentPipeline() {
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           {Object.entries(statusConfig).map(([status, config]) => (
-            <div key={status}>
+            <div key={status} className="w-full">
               <div className="flex items-center gap-2 mb-4">
                 <span>{config.icon}</span>
                 <h3 className="font-semibold text-sm" style={{ color: config.color }}>
@@ -246,7 +246,7 @@ export default function ContentPipeline() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="min-h-[400px] p-2 rounded-lg transition-colors"
+                    className="min-h-[300px] sm:min-h-[400px] p-2 rounded-lg transition-colors w-full"
                     style={{
                       background: snapshot.isDraggingOver ? "#334155" : "#0f172a",
                       border: `1px solid ${snapshot.isDraggingOver ? "#475569" : "#1e293b"}`,
@@ -259,6 +259,7 @@ export default function ContentPipeline() {
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
+                            className="w-full"
                             style={{
                               ...provided.draggableProps.style,
                               opacity: snapshot.isDragging ? 0.8 : 1,

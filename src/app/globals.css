@@ -12,12 +12,36 @@
   --accent-hover: #2563eb;
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 1023px) {
+  /* Better touch targets */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Prevent horizontal scrolling on mobile */
+  .grid {
+    overflow-x: visible;
+  }
+  
+  /* Better spacing on mobile */
+  .space-y-3 > * + * {
+    margin-top: 0.875rem;
+  }
 }

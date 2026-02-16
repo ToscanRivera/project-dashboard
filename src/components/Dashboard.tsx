@@ -89,43 +89,45 @@ export default function Dashboard({ user }: { user: { name: string; email: strin
     <div className="min-h-screen" style={{ background: "#0f172a" }}>
       {/* Header */}
       <header className="border-b" style={{ background: "#1e293b", borderColor: "#334155" }}>
-        <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-2xl">📊</span>
-            <div>
-              <h1 className="text-lg font-bold" style={{ color: "#f1f5f9" }}>Project Dashboard</h1>
-              <p className="text-xs" style={{ color: "#94a3b8" }}>Welcome, {user.name}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex gap-4 text-xs" style={{ color: "#94a3b8" }}>
-              <span>📋 {projects.length} projects</span>
-              <span>🔵 {statusCounts.inprogress} active</span>
-              <span>⏸️ {statusCounts.onhold} on hold</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                {user.image && (
-                  <img 
-                    src={user.image} 
-                    alt={user.name || "User"} 
-                    className="w-8 h-8 rounded-full"
-                  />
-                )}
-                <div className="text-right">
-                  <p className="text-sm font-medium" style={{ color: "#f1f5f9" }}>{user.name}</p>
-                  {user.username && (
-                    <p className="text-xs" style={{ color: "#64748b" }}>@{user.username}</p>
-                  )}
-                </div>
+        <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="text-2xl">📊</span>
+              <div>
+                <h1 className="text-lg font-bold" style={{ color: "#f1f5f9" }}>Project Dashboard</h1>
+                <p className="text-xs" style={{ color: "#94a3b8" }}>Welcome, {user.name}</p>
               </div>
-              <button
-                onClick={() => signOut()}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-                style={{ background: "#334155", color: "#94a3b8" }}
-              >
-                Sign Out
-              </button>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-6">
+              <div className="hidden md:flex gap-4 text-xs" style={{ color: "#94a3b8" }}>
+                <span>📋 {projects.length} projects</span>
+                <span>🔵 {statusCounts.inprogress} active</span>
+                <span>⏸️ {statusCounts.onhold} on hold</span>
+              </div>
+              <div className="flex items-center gap-3 justify-between sm:justify-start">
+                <div className="flex items-center gap-2">
+                  {user.image && (
+                    <img 
+                      src={user.image} 
+                      alt={user.name || "User"} 
+                      className="w-8 h-8 rounded-full"
+                    />
+                  )}
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-medium" style={{ color: "#f1f5f9" }}>{user.name}</p>
+                    {user.username && (
+                      <p className="text-xs" style={{ color: "#64748b" }}>@{user.username}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                  style={{ background: "#334155", color: "#94a3b8" }}
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
