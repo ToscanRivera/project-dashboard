@@ -18,13 +18,18 @@ import GithubProvider from "next-auth/providers/github";
  * Current implementation: None - should be added for production deployment
  */
 
-export const authOptions: NextAuthOptions = {
-  providers: [
+const providers = [];
+if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) {
+  providers.push(
     GithubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
-    }),
-  ],
+      clientId: process.env.GITHUB_ID,
+      clientSecret: process.env.GITHUB_SECRET,
+    })
+  );
+}
+
+export const authOptions: NextAuthOptions = {
+  providers,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   callbacks: {
@@ -45,5 +50,5 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET!,
+  secret: process.env.NEXTAUTH_SECRET || "dev-secret-change-in-production",
 };
