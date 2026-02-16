@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { signOut } from "next-auth/react";
 import KanbanBoard from "./KanbanBoard";
 import AddProjectModal from "./AddProjectModal";
+import ContentPipeline from "./ContentPipeline";
 
 interface Board {
   id: number;
@@ -22,13 +23,14 @@ interface Project {
   updated_at: string;
 }
 
-export default function Dashboard({ user }: { user: { name: string; email: string; id: string } }) {
+export default function Dashboard({ user }: { user: { name: string; email: string; id: string; image?: string; username?: string } }) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [showNewBoard, setShowNewBoard] = useState(false);
+  const [activeSection, setActiveSection] = useState<"projects" | "content">("projects");
 
   const fetchBoards = useCallback(async () => {
     const res = await fetch("/api/boards");
@@ -106,20 +108,66 @@ export default function Dashboard({ user }: { user: { name: string; email: strin
               <span>🔵 {statusCounts.inprogress} active</span>
               <span>⏸️ {statusCounts.onhold} on hold</span>
             </div>
-            <button
-              onClick={() => signOut()}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
-              style={{ background: "#334155", color: "#94a3b8" }}
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {user.image && (
+                  <img 
+                    src={user.image} 
+                    alt={user.name || "User"} 
+                    className="w-8 h-8 rounded-full"
+                  />
+                )}
+                <div className="text-right">
+                  <p className="text-sm font-medium" style={{ color: "#f1f5f9" }}>{user.name}</p>
+                  {user.username && (
+                    <p className="text-xs" style={{ color: "#64748b" }}>@{user.username}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => signOut()}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-80"
+                style={{ background: "#334155", color: "#94a3b8" }}
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Board tabs */}
+      {/* Main navigation */}
       <div className="border-b" style={{ background: "#1e293b", borderColor: "#334155" }}>
-        <div className="max-w-[1600px] mx-auto px-6 flex items-center gap-1 overflow-x-auto">
+        <div className="max-w-[1600px] mx-auto px-6 flex items-center">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveSection("projects")}
+              className="px-6 py-4 text-sm font-semibold transition-all border-b-2"
+              style={{
+                color: activeSection === "projects" ? "#3b82f6" : "#94a3b8",
+                borderColor: activeSection === "projects" ? "#3b82f6" : "transparent",
+              }}
+            >
+              📋 Projects
+            </button>
+            <button
+              onClick={() => setActiveSection("content")}
+              className="px-6 py-4 text-sm font-semibold transition-all border-b-2"
+              style={{
+                color: activeSection === "content" ? "#3b82f6" : "#94a3b8",
+                borderColor: activeSection === "content" ? "#3b82f6" : "transparent",
+              }}
+            >
+              📝 Content
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Board tabs - only show for projects section */}
+      {activeSection === "projects" && (
+        <div className="border-b" style={{ background: "#1e293b", borderColor: "#334155" }}>
+          <div className="max-w-[1600px] mx-auto px-6 flex items-center gap-1 overflow-x-auto">
           {boards.map(board => (
             <button
               key={board.id}
@@ -157,30 +205,37 @@ export default function Dashboard({ user }: { user: { name: string; email: strin
               + New Board
             </button>
           )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main content */}
       <div className="max-w-[1600px] mx-auto px-6 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold" style={{ color: "#f1f5f9" }}>
-            {activeBoard?.name || "Select a board"}
-          </h2>
-          <button
-            onClick={() => setShowAddProject(true)}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
-            style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}
-          >
-            + Add Project
-          </button>
-        </div>
+        {activeSection === "projects" ? (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold" style={{ color: "#f1f5f9" }}>
+                {activeBoard?.name || "Select a board"}
+              </h2>
+              <button
+                onClick={() => setShowAddProject(true)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}
+              >
+                + Add Project
+              </button>
+            </div>
 
-        {activeBoard && (
-          <KanbanBoard
-            projects={projects}
-            onReorder={handleReorder}
-            onDelete={handleDeleteProject}
-          />
+            {activeBoard && (
+              <KanbanBoard
+                projects={projects}
+                onReorder={handleReorder}
+                onDelete={handleDeleteProject}
+              />
+            )}
+          </>
+        ) : (
+          <ContentPipeline />
         )}
       </div>
 
