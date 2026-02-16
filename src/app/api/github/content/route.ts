@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server';
-import { fetchContentPRs, demoData } from '@/lib/github';
+import { fetchContentPRs } from '@/lib/github';
+import { getUserId } from '@/lib/get-user-id';
 
 export async function GET() {
-  try {
-    // Check if GitHub token is available
-    if (!process.env.GITHUB_TOKEN) {
-      console.log('No GitHub token found, returning demo content data');
-      return NextResponse.json(demoData.contentPRs);
-    }
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Fetch real data from GitHub
+  try {
+    if (!process.env.GITHUB_TOKEN) {
+      return NextResponse.json({ error: "GITHUB_TOKEN not configured" }, { status: 500 });
+    }
     const prs = await fetchContentPRs();
     return NextResponse.json(prs);
   } catch (error) {
     console.error('Error in /api/github/content:', error);
-    
-    // Fallback to demo data on error
-    return NextResponse.json(demoData.contentPRs);
+    return NextResponse.json({ error: "Failed to fetch content PRs" }, { status: 500 });
   }
 }
