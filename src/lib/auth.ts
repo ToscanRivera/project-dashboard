@@ -1,6 +1,9 @@
 import { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 
+// Only these GitHub usernames can access the dashboard
+const ALLOWED_USERS = ["Rene-Rivera", "ToscanRivera"];
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GithubProvider({
@@ -11,10 +14,17 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async signIn({ user, profile }) {
+      const username = (profile as any)?.login || "";
+      if (!ALLOWED_USERS.includes(username)) {
+        return false; // Reject unauthorized users
+      }
+      return true;
+    },
+    async jwt({ token, user, account, profile }) {
       if (account && user) {
         token.userId = user.id;
-        token.username = (user as any).login || user.name;
+        token.username = (profile as any)?.login || (user as any).login || user.name;
         token.avatar = user.image;
       }
       return token;
