@@ -11,22 +11,19 @@ interface Board {
   name: string;
 }
 
-interface Project {
-  id: number;
-  board_id: number;
+interface GitHubProject {
+  id: string;
   title: string;
-  description: string;
+  body: string;
   status: string;
-  priority: string;
-  github_url: string;
-  position: number;
-  updated_at: string;
+  repository?: string;
+  description?: string;
 }
 
 export default function Dashboard({ user }: { user: { name: string; email: string; id: string; image?: string; username?: string } }) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoard, setActiveBoard] = useState<Board | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<GitHubProject[]>([]);
   const [showAddProject, setShowAddProject] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [showNewBoard, setShowNewBoard] = useState(false);
@@ -40,11 +37,12 @@ export default function Dashboard({ user }: { user: { name: string; email: strin
   }, [activeBoard]);
 
   const fetchProjects = useCallback(async () => {
-    if (!activeBoard) return;
-    const res = await fetch(`/api/projects?boardId=${activeBoard.id}`);
+    // For GitHub integration, we don't need board-specific projects
+    // All projects come from GitHub Project #1
+    const res = await fetch(`/api/github/projects`);
     const data = await res.json();
     setProjects(data);
-  }, [activeBoard]);
+  }, []);
 
   useEffect(() => { fetchBoards(); }, [fetchBoards]);
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
@@ -68,19 +66,16 @@ export default function Dashboard({ user }: { user: { name: string; email: strin
     setShowAddProject(false);
   };
 
-  const handleReorder = async (projectId: number, newStatus: string, newPosition: number) => {
-    // Optimistic update
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus, position: newPosition } : p));
-    await fetch("/api/projects/reorder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ projectId, status: newStatus, position: newPosition }),
-    });
+  const handleReorder = async (projectId: string, newStatus: string, newPosition: number) => {
+    // Optimistic update for UI responsiveness
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, status: newStatus } : p));
+    // TODO: Implement GitHub Project status update via GraphQL API
+    console.log('TODO: Update GitHub Project item status', { projectId, newStatus, newPosition });
   };
 
-  const handleDeleteProject = async (projectId: number) => {
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+  const handleDeleteProject = async (projectId: string) => {
+    // GitHub Projects don't support deletion from this interface
+    console.log('Project deletion not supported for GitHub Projects');
   };
 
   const statusCounts = {

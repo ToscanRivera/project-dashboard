@@ -16,15 +16,13 @@ const Draggable = dynamic(
   { ssr: false }
 );
 
-interface Project {
-  id: number;
+interface GitHubProject {
+  id: string;
   title: string;
-  description: string;
+  body: string;
   status: string;
-  priority: string;
-  github_url: string;
-  position: number;
-  updated_at: string;
+  repository?: string;
+  description?: string;
 }
 
 const COLUMNS = [
@@ -45,13 +43,13 @@ export default function KanbanBoard({
   onReorder,
   onDelete,
 }: {
-  projects: Project[];
-  onReorder: (projectId: number, newStatus: string, newPosition: number) => void;
-  onDelete: (projectId: number) => void;
+  projects: GitHubProject[];
+  onReorder: (projectId: string, newStatus: string, newPosition: number) => void;
+  onDelete: (projectId: string) => void;
 }) {
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
-    const projectId = parseInt(result.draggableId);
+    const projectId = result.draggableId;
     const newStatus = result.destination.droppableId;
     const newPosition = result.destination.index;
     onReorder(projectId, newStatus, newPosition);
@@ -63,7 +61,7 @@ export default function KanbanBoard({
         {COLUMNS.map(col => {
           const colProjects = projects
             .filter(p => p.status === col.id)
-            .sort((a, b) => a.position - b.position);
+            .sort((a, b) => a.title.localeCompare(b.title)); // Sort by title for GitHub projects
 
           return (
             <div key={col.id} className="rounded-xl" style={{ background: "#151d2e", border: "1px solid #1e293b" }}>
@@ -88,7 +86,7 @@ export default function KanbanBoard({
                     }}
                   >
                     {colProjects.map((project, index) => (
-                      <Draggable key={project.id} draggableId={String(project.id)} index={index}>
+                      <Draggable key={project.id} draggableId={project.id} index={index}>
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
@@ -104,14 +102,8 @@ export default function KanbanBoard({
                           >
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="font-semibold text-sm" style={{ color: "#f1f5f9" }}>{project.title}</h3>
-                              <span
-                                className="text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wide"
-                                style={{
-                                  background: PRIORITY_COLORS[project.priority]?.bg || "#334155",
-                                  color: PRIORITY_COLORS[project.priority]?.text || "#94a3b8",
-                                }}
-                              >
-                                {project.priority}
+                              <span className="text-[10px] text-xs px-2 py-0.5 rounded-full" style={{ background: "#334155", color: "#94a3b8" }}>
+                                GitHub
                               </span>
                             </div>
                             {project.description && (
@@ -121,16 +113,16 @@ export default function KanbanBoard({
                             )}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                {project.github_url && (
+                                {project.repository && (
                                   <a
-                                    href={project.github_url}
+                                    href={project.repository}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-xs hover:underline"
                                     style={{ color: "#64748b" }}
                                     onClick={e => e.stopPropagation()}
                                   >
-                                    🔗 GitHub
+                                    🔗 Repo
                                   </a>
                                 )}
                               </div>

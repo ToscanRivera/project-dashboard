@@ -17,60 +17,27 @@ const Draggable = dynamic(
   { ssr: false }
 );
 
+interface GitHubPR {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  user: {
+    login: string;
+  };
+  created_at: string;
+  files_changed?: number;
+  review_status: 'none' | 'requested' | 'approved' | 'merged';
+}
+
 interface Article {
   id: string;
   title: string;
   author: string;
-  wordCount: number;
+  filesChanged: number;
   status: "draft" | "review" | "approved" | "published";
   createdDate: string;
-  coverImage?: string;
-  content: string;
-  companionPost: string;
+  prNumber: number;
 }
-
-const mockArticles: Article[] = [
-  {
-    id: "1",
-    title: "Building AI-Powered Dashboards with Next.js",
-    author: "John Doe",
-    wordCount: 1245,
-    status: "draft",
-    createdDate: "2024-02-15",
-    content: "This is the main article content...",
-    companionPost: "Just finished my latest article on AI dashboards! Key insights inside. 🧵"
-  },
-  {
-    id: "2",
-    title: "The Future of Content Management Systems",
-    author: "Jane Smith",
-    wordCount: 2100,
-    status: "review",
-    createdDate: "2024-02-14",
-    content: "Content management has evolved significantly...",
-    companionPost: "Exploring the evolution of CMS platforms and what's next. Thoughts? 💭"
-  },
-  {
-    id: "3",
-    title: "Authentication Patterns in Modern Web Apps",
-    author: "Mike Johnson",
-    wordCount: 1890,
-    status: "approved",
-    createdDate: "2024-02-13",
-    content: "Security is paramount in modern applications...",
-    companionPost: "Security first! Breaking down modern auth patterns in my latest piece. 🔐"
-  },
-  {
-    id: "4",
-    title: "React Performance Optimization Tips",
-    author: "Sarah Wilson",
-    wordCount: 1650,
-    status: "published",
-    createdDate: "2024-02-12",
-    content: "Performance optimization is crucial for user experience...",
-    companionPost: "5 React optimization techniques that made our app 3x faster ⚡"
-  },
-];
 
 const statusConfig = {
   draft: { label: "Draft", icon: "📝", color: "#64748b" },
@@ -79,10 +46,57 @@ const statusConfig = {
   published: { label: "Published", icon: "🚀", color: "#3b82f6" },
 };
 
+/**
+ * Map GitHub PR review status to content pipeline status
+ */
+function mapPRToContentStatus(pr: GitHubPR): "draft" | "review" | "approved" | "published" {
+  if (pr.state === 'closed' || pr.review_status === 'merged') return 'published';
+  
+  switch (pr.review_status) {
+    case 'approved':
+      return 'approved';
+    case 'requested':
+      return 'review';
+    default:
+      return 'draft';
+  }
+}
+
+/**
+ * Convert GitHub PR to Article format
+ */
+function prToArticle(pr: GitHubPR): Article {
+  return {
+    id: `pr-${pr.number}`,
+    title: pr.title,
+    author: pr.user.login,
+    filesChanged: pr.files_changed || 0,
+    status: mapPRToContentStatus(pr),
+    createdDate: new Date(pr.created_at).toISOString().split('T')[0],
+    prNumber: pr.number,
+  };
+}
+
 export default function ContentPipeline() {
-  const [articles, setArticles] = useState<Article[]>(mockArticles);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Fetch content PRs from GitHub
+  const fetchContentPRs = async () => {
+    try {
+      const res = await fetch('/api/github/content');
+      const prs: GitHubPR[] = await res.json();
+      const articleData = prs.map(prToArticle);
+      setArticles(articleData);
+    } catch (error) {
+      console.error('Error fetching content PRs:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchContentPRs();
+  }, []);
 
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -100,12 +114,32 @@ export default function ContentPipeline() {
     ));
   };
 
-  const handleApprove = (articleId: string) => {
-    setArticles(prev => prev.map(article => 
-      article.id === articleId && article.status === "review"
-        ? { ...article, status: "approved" }
-        : article
+  const handleApprove = async (articleId: string) => {
+    const article = articles.find(a => a.id === articleId);
+    if (!article || article.status !== "review") return;
+
+    // Optimistic update
+    setArticles(prev => prev.map(a => 
+      a.id === articleId ? { ...a, status: "approved" } : a
     ));
+
+    try {
+      const res = await fetch('/api/github/content/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prNumber: article.prNumber }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to approve PR');
+      }
+    } catch (error) {
+      console.error('Error approving PR:', error);
+      // Revert optimistic update on error
+      setArticles(prev => prev.map(a => 
+        a.id === articleId ? { ...a, status: "review" } : a
+      ));
+    }
   };
 
   const handleRequestChanges = (articleId: string) => {
@@ -128,13 +162,9 @@ export default function ContentPipeline() {
       onClick={() => openPreview(article)}
     >
       <div className="flex items-start gap-3 mb-3">
-        {article.coverImage && (
-          <img 
-            src={article.coverImage} 
-            alt="" 
-            className="w-12 h-12 rounded object-cover"
-          />
-        )}
+        <div className="w-12 h-12 rounded flex items-center justify-center text-2xl" style={{ background: "#334155" }}>
+          📝
+        </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-medium text-sm leading-tight mb-1" style={{ color: "#f1f5f9" }}>
             {article.title}
@@ -143,8 +173,9 @@ export default function ContentPipeline() {
         </div>
       </div>
       
-      <div className="flex justify-between items-center text-xs" style={{ color: "#64748b" }}>
-        <span>{article.wordCount} words</span>
+      <div className="flex justify-between items-center text-xs mb-2" style={{ color: "#64748b" }}>
+        <span>PR #{article.prNumber}</span>
+        <span>{article.filesChanged} files</span>
         <span>{new Date(article.createdDate).toLocaleDateString()}</span>
       </div>
 
@@ -262,7 +293,8 @@ export default function ContentPipeline() {
                   </h2>
                   <div className="flex gap-4 text-sm" style={{ color: "#94a3b8" }}>
                     <span>by {selectedArticle.author}</span>
-                    <span>{selectedArticle.wordCount} words</span>
+                    <span>PR #{selectedArticle.prNumber}</span>
+                    <span>{selectedArticle.filesChanged} files changed</span>
                     <span>{new Date(selectedArticle.createdDate).toLocaleDateString()}</span>
                     <span className="flex items-center gap-1">
                       {statusConfig[selectedArticle.status].icon}
@@ -280,49 +312,52 @@ export default function ContentPipeline() {
               </div>
             </div>
 
-            <div className="p-6 grid md:grid-cols-2 gap-6">
+            <div className="p-6 space-y-6">
               <div>
-                <h3 className="font-semibold mb-3" style={{ color: "#f1f5f9" }}>📄 Article Content</h3>
+                <h3 className="font-semibold mb-3" style={{ color: "#f1f5f9" }}>🔗 Pull Request Details</h3>
                 <div 
-                  className="p-4 rounded-lg text-sm leading-relaxed"
+                  className="p-4 rounded-lg text-sm space-y-2"
                   style={{ background: "#0f172a", color: "#cbd5e1", border: "1px solid #334155" }}
                 >
-                  {selectedArticle.content}
+                  <p><strong>PR Number:</strong> #{selectedArticle.prNumber}</p>
+                  <p><strong>Title:</strong> {selectedArticle.title}</p>
+                  <p><strong>Author:</strong> {selectedArticle.author}</p>
+                  <p><strong>Files Changed:</strong> {selectedArticle.filesChanged}</p>
+                  <p><strong>Created:</strong> {new Date(selectedArticle.createdDate).toLocaleDateString()}</p>
+                  <p><strong>Status:</strong> {statusConfig[selectedArticle.status].label}</p>
+                  <a 
+                    href={`https://github.com/ToscanRivera/the-door/pull/${selectedArticle.prNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    🔗 View on GitHub
+                  </a>
                 </div>
               </div>
 
-              <div>
-                <h3 className="font-semibold mb-3" style={{ color: "#f1f5f9" }}>🐦 Companion Post</h3>
-                <div 
-                  className="p-4 rounded-lg text-sm"
-                  style={{ background: "#0f172a", color: "#cbd5e1", border: "1px solid #334155" }}
-                >
-                  {selectedArticle.companionPost}
+              {selectedArticle.status === "review" && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      handleApprove(selectedArticle.id);
+                      setShowPreview(false);
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                  >
+                    ✅ Approve PR
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleRequestChanges(selectedArticle.id);
+                      setShowPreview(false);
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    📝 Request Changes
+                  </button>
                 </div>
-
-                {selectedArticle.status === "review" && (
-                  <div className="flex gap-3 mt-4">
-                    <button
-                      onClick={() => {
-                        handleApprove(selectedArticle.id);
-                        setShowPreview(false);
-                      }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-                    >
-                      ✅ Approve
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleRequestChanges(selectedArticle.id);
-                        setShowPreview(false);
-                      }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
-                    >
-                      📝 Request Changes
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
