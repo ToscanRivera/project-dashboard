@@ -32,10 +32,11 @@ export interface GitHubProjectItem {
   };
   fieldValues: {
     nodes: Array<{
-      field: {
+      field?: {
         name: string;
       };
-      value?: string;
+      name?: string;  // SingleSelectValue
+      text?: string;   // TextValue
     }>;
   };
 }
@@ -225,7 +226,7 @@ export async function fetchProjects(): Promise<GitHubProject[]> {
           field => field.field?.name === 'Status'
         );
         
-        const rawStatus = statusField?.value || 'Todo';
+        const rawStatus = statusField?.name || 'Todo';
         const status = mapProjectStatus(rawStatus);
         const body = item.content.body || '';
         
@@ -235,7 +236,7 @@ export async function fetchProjects(): Promise<GitHubProject[]> {
           body,
           status,
           repository: extractRepoUrl(body),
-          description: body.split('\n')[0] || '', // First line as description
+          description: body.split('\n').filter(l => !l.startsWith('**Repo:**')).join(' ').trim() || '',
         };
       });
   } catch (error) {
